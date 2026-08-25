@@ -1,0 +1,120 @@
+## ---------------------------------------------------------------------------------
+## ---------------------------------------------------------------------------------
+## methane hydrate growth		
+## writed by Dongsheng Chen, 2023/12/09												
+## ---------------------------------------------------------------------------------
+## ---------------------------------------------------------------------------------
+# ----------------- Variables -----------------
+variable  k    index  1 #2 3
+
+log $k_hydrate_growth_log.lammps
+
+variable  T1    equal 260  #K
+variable  Pa0    equal 50  # MPa
+variable  P0    equal "v_Pa0/0.101325"  # MPa to atm
+
+variable  dt    equal 2.0 #timestep fs
+
+variable  Tdamp equal "v_dt*100"  # Tdamp
+variable  Pdamp equal "v_dt*1000"  # Pdamp
+
+variable  Lr    equal 1e5  # npt time
+variable  Lt    equal 5e7  # growth time
+
+# ----------------- Init Section -----------------
+units        real
+dimension	 3
+boundary	 p p p
+atom_style   full
+pair_style  lj/cut/tip4p/long 1 2 1 1 0.1577 10.0 #tip4p/ice
+kspace_style pppm/tip4p 1.0e-4
+bond_style   harmonic
+angle_style  harmonic 
+pair_modify mix arithmetic  # Lorenz – Berthelot mixing rules
+#special_bonds lj/coul 0.0 0.0 0.5
+# ----------------- Atom Definition Section -----------------
+read_data "system.data"
+
+# ----------------- Settings Section -----------------
+pair_coeff   1 1  0.21084  	3.166800      # O-hydrate #tip4p/ice
+pair_coeff   1 2  0.00000   0.000000      # O-H hydrate
+pair_coeff   2 2  0.00000   0.000000      # H-H hydrate
+pair_coeff   3 3  0.29391	3.730000	    # CT-hydrate
+
+bond_coeff   1         450.0    0.9572
+angle_coeff  1         55.0    104.52
+
+group water		 	type   1  2
+group methane 		type   3
+
+# ----------------- minimize Section -----------------
+
+neighbor 2.0 bin 
+neigh_modify every 1 delay 0 check yes
+
+# ----------------- minimize Section -----------------
+
+neighbor 2.0 bin 
+neigh_modify every 1 delay 0 check yes
+
+thermo 100
+thermo_style  custom step density temp press pxx pyy pzz pe ke etotal
+min_style sd
+minimize 1.0e-8 1.0e-8 1000 100000
+write_data $k_mini.data
+
+timestep ${dt}
+
+fix shaketip4p 	 water   shake 0.0001 10 0 b 1 a 1
+
+velocity all create ${T1} $k4928459 rot yes dist gaussian
+
+# ----------------- NPT Relaxtion Section -----------------
+reset_timestep 0
+
+thermo 1000
+thermo_style  custom step density temp press pxx pyy pzz pe ke etotal
+dump 1 all custom 50000 traj_npt_relax_${T1}_$k.lammpstrj id mol element type x y z 
+dump_modify 1 element O H C
+
+fix   fxnpt all npt temp ${T1} ${T1} ${Tdamp} aniso ${P0} ${P0} ${Pdamp}
+
+run  ${Lr}
+
+unfix fxnpt
+undump 1
+write_data $k_npt_relax_${T1}.data
+
+# ----------------- NVT Relaxtion Section -----------------
+reset_timestep 0
+
+thermo 1000
+thermo_style  custom step density temp press pxx pyy pzz pe ke etotal
+dump 1 all custom 50000 traj_nvt_relax_${T1}_$k.lammpstrj id mol element type x y z
+dump_modify 1 element O H C
+
+fix   fxnvt all nvt temp ${T1} ${T1} ${Tdamp}
+
+run  ${Lr}
+
+unfix fxnvt
+undump 1
+write_data $k_nvt_relax_${T1}.data
+
+# ----------------- NPT growth Section -----------------
+reset_timestep 0
+
+thermo 1000
+thermo_style  custom step density temp press pxx pyy pzz pe ke etotal
+dump 1 all custom 50000 traj_npt_growth_${T1}_$k.lammpstrj id mol element type x y z
+dump_modify 1 element O H C
+
+fix   fxnpt all npt temp ${T1} ${T1} ${Tdamp} iso ${P0} ${P0} ${Pdamp}
+
+run  ${Lt}
+unfix fxnpt
+undump 1
+
+write_data $k_npt_formation_${T1}.data
+write_restart $k_npt_formation_${T1}_restart.*
+
