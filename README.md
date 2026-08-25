@@ -1,6 +1,4 @@
-# Reproducibility materials
-
-Code and supporting files for *Accelerating the Discovery of High-Performance Multi-component Thermodynamic Hydrate Inhibitors via Bayesian Optimization with Molecular Insights into Synergistic Mechanisms*.
+> Code and supporting files for *Accelerating the Discovery of High-Performance Multi-component Thermodynamic Hydrate Inhibitors via Bayesian Optimization with Molecular Insights into Synergistic Mechanisms*.
 
 ## Contents
 
